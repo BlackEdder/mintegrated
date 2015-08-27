@@ -30,6 +30,11 @@ private Real volume(Real)( in Area!Real area )
     return s;
 }
 
+private size_t dimension(Real)( in Area!Real area )
+{
+    return area.lower.length;
+}
+
 unittest
 {
     assert( volume( Area!double([-1.0,-2.0],[2.0,0.0]) ) == 3.0*2.0 );
@@ -38,8 +43,8 @@ unittest
 private Area!Real[] splitArea(Real)( in Area!Real area, size_t dimension )
 {
     assert( dimension < area.lower.length );
-    auto div = (area.upper[dimension]-area.lower[dimension])*0.5 +
-        area.lower[dimension];
+    auto div = (area.upper[dimension]-area.lower[dimension])*0.5
+        + area.lower[dimension];
     auto newLower = area.lower.dup;
     newLower[dimension] = div;
     auto newUpper = area.upper.dup;
@@ -51,12 +56,13 @@ private Area!Real[] splitArea(Real)( in Area!Real area, size_t dimension )
 unittest
 {
     auto a = Area!double([-1.0,-2.0],[2.0,0.0]);
-    assert( splitArea(a,0)[0].volume == 0.5*a.volume );
-    assert( splitArea(a,1)[0].volume == 0.5*a.volume );
-    assert( splitArea(a,0)[1].volume == 0.5*a.volume );
-    assert( splitArea(a,1)[1].volume == 0.5*a.volume );
-    assert( splitArea(a,0)[1].lower[0] == 0.5 );
-    assert( splitArea(a,1)[1].lower[0] == -1.0 );
+    assert( splitArea(a,0)[0].volume < a.volume );
+    assert( splitArea(a,1)[0].volume < a.volume );
+    assert( splitArea(a,0)[1].volume < a.volume );
+    assert( splitArea(a,1)[1].volume < a.volume );
+
+    auto splitted = splitArea(a,0);
+    assert( a.volume == splitted[0].volume + splitted[1].volume );
 }
 
 private bool withinArea(Real)( in Real[] point, in Area!Real area )
@@ -106,42 +112,46 @@ unittest
 Result!Real integrate(Func, Real)(scope Func f, Real[] a, Real[] b,
     Real epsRel = cast(Real) 1e-6, Real epsAbs = cast(Real) 0)
 {
-    return miser(f, a, b, epsRel, epsAbs, 150*a.length); 
+    auto area = Area!Real( a, b );
+    auto result = miser(f, area, epsRel, epsAbs, 150*a.length);
+    return Result!Real( result.value*area.volume, 
+            result.error*area.volume ); 
 }
 
-Result!Real miser(Func, Real)(scope Func f, Real[] a, Real[] b,
+Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     Real epsRel = cast(Real) 1e-6, Real epsAbs = cast(Real) 0, 
     size_t npoints = 1000 )
 {
     import std.stdio : writeln;
 
-    auto area = Area!Real( a, b );
-    auto bounds = a.zip(b);
+    assert( volume(area) > 0, "Size of area is 0" );
+    auto bounds = area.lower.zip(area.upper);
+    assert( bounds.all!((t) => t[1] > t[0] ) );
     auto points =
         iota( 0, npoints, 1 )
         .map!( (i) => bounds
                 .map!( (t) {
-                    return uniform!"()"( t[0], t[1] ).to!Real; 
+                    return uniform!"[]"( t[0], t[1] ).to!Real; 
                     } 
                 ).array 
              );
     auto values = points.map!((pnt) => f( pnt ) ).array;
 
-    auto result = meanAndVariance( values, area );
+    auto msd = meanStdev( values );
+    auto result = Result!Real( msd.mean, sqrt(msd.mse) );
 
-    auto error = sqrt( result.error );
-    if (error < epsAbs || error/result.value < epsRel)
-        return Result!Real(result.value, error);
-
+    if (area.volume*result.error < epsAbs 
+            || result.error/(area.volume*result.value) < epsRel)
+        return result;
 
     // Try different subareas
-
     Area!Real[] bestAreas;
     auto bestEst = Real.max;
     Result!Real[] bestResults;
-    foreach( j; 0..a.length ) 
+    foreach( j; 0..area.lower.length ) 
     {
         auto subAreas = area.splitArea( j );
+        assert( volume(subAreas[0]) > 0, "Cannot divide the area further" );
 
         auto pntvs = zip( points, values );
         auto results = subAreas.map!( (a) 
@@ -153,7 +163,7 @@ Result!Real miser(Func, Real)(scope Func f, Real[] a, Real[] b,
                         msd.put( pntv[1] );
                         }
                     assert( msd.N > 0 );
-                    return msd.meanAndVariance( a );
+                    return Result!Real(msd.mean, sqrt(msd.mse));
                 } );
         Result!Real[] cacheResults;
         // Optimize this by first only looking at first. Only if that
@@ -179,26 +189,25 @@ Result!Real miser(Func, Real)(scope Func f, Real[] a, Real[] b,
     auto sdA = sqrt(bestResults[0].error);
     auto sdB = sqrt(bestResults[1].error);
     auto sumSd = sdA + sdB;
-    assert( volume(bestAreas[0]) > 0 );
     if (sumSd == 0)
     {
-        result = Result!Real( (bestResults[0].value+bestResults[1].value), 
+        result = Result!Real( 0.5*(bestResults[0].value+bestResults[1].value), 
             sqrt(0.25*pow(bestResults[0].error,2)+0.25*pow(bestResults[1].error,2) ) );
 
         return result;
     }
 
-    auto npntsl = round(150*a.length*sdA/sumSd).to!int; 
-    auto npntsu = 150*a.length-npntsl;
+    auto npntsl = round(150*area.dimension*sdA/sumSd).to!int; 
+    auto npntsu = 150*area.dimension-npntsl;
 
-    auto rl = miser( f, bestAreas[0].lower, bestAreas[0].upper, 
+    auto rl = miser( f, bestAreas[0], 
             epsRel, epsAbs,
-            max( 15*a.length, npntsl ) );
-    auto ru = miser( f, bestAreas[1].lower, bestAreas[1].upper, 
+            max( 15*area.dimension, npntsl ) );
+    auto ru = miser( f, bestAreas[1], 
             epsRel, epsAbs,
-            max( 15*a.length, npntsu ) );
+            max( 15*area.dimension, npntsu ) );
 
-    result = Result!Real( (rl.value+ru.value), 
+    result = Result!Real( 0.5*(rl.value+ru.value), 
             sqrt(0.25*pow(rl.error,2)+0.25*pow(ru.error,2) ) );
 
     return result; 
@@ -216,7 +225,7 @@ unittest
         return 0.0;
     };
 
-    auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 1e-3 );
+    auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 1e-7 );
     result.writeln;
     assert( result.value <= PI + 1e-3 );
     assert( result.value >= PI - 1e-3 );
