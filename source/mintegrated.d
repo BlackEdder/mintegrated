@@ -115,14 +115,14 @@ Result!Real integrate(Func, Real)(scope Func f, Real[] a, Real[] b,
     Real epsRel = cast(Real) 1e-6, Real epsAbs = cast(Real) 0)
 {
     auto area = Area!Real( a, b );
-    auto result = miser(f, area, epsRel, epsAbs, 150*a.length);
-    return Result!Real( result.value*area.volume, 
-            result.error*area.volume ); 
+    auto result = miser(f, area, epsRel, epsAbs, 10*a.length);
+    return Result!Real( result.value, 
+            result.error ); 
 }
 
 Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     Real epsRel = cast(Real) 1e-6, Real epsAbs = cast(Real) 0, 
-    size_t npoints = 1000, MeanSD msd = MeanSD() )
+    size_t npoints = 1000 )
 {
     assert( volume(area) > 0, "Size of area is 0" );
     auto bounds = area.lower.zip(area.upper);
@@ -137,26 +137,25 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
              );
     auto values = points.map!((pnt) => f( pnt ) ).array;
 
-    foreach( v; values )
-        msd.put(v);
-    auto result = Result!Real( msd.mean, sqrt(msd.mse) );
+    auto msd = meanStdev( values );
 
-    if (area.volume*result.error < epsAbs 
-            || result.error/(area.volume*result.value) < epsRel)
+    auto result = Result!Real( area.volume*msd.mean, 
+            sqrt(pow(area.volume,2.0)*msd.mse) );
+
+    if (result.error < epsAbs 
+            || result.error/result.value < epsRel)
         return result;
 
     // Try different subareas
     Area!Real[] bestAreas;
     auto bestEst = Real.max;
     Result!Real[] bestResults;
-    MeanSD[] bestMSDs;
     foreach( j; 0..area.lower.length ) 
     {
         auto subAreas = area.splitArea( j );
         assert( volume(subAreas[0]) > 0, "Cannot divide the area further" );
 
         auto pntvs = zip( points, values );
-        MeanSD[] cacheMSDs;
         auto results = subAreas.map!( (a) 
                 {
                     MeanSD msd;
@@ -165,9 +164,9 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
                         if (pntv[0].withinArea(a))
                         msd.put( pntv[1] );
                         }
-                    cacheMSDs ~= msd;
-                    assert( msd.N > 0 );
-                    return Result!Real(msd.mean, sqrt(msd.mse));
+                    assert( msd.N > 0, "No samples in the subarea" );
+                    return Result!Real(a.volume*msd.mean, 
+                            pow(a.volume,2)*msd.mse );
                 } );
         Result!Real[] cacheResults;
         // Optimize this by first only looking at first. Only if that
@@ -185,19 +184,19 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
             bestEst = runningError;
             bestResults = cacheResults;
             bestAreas = subAreas;
-            bestMSDs = cacheMSDs;
         }
     }
     assert( bestAreas.length == 2 );
     assert( bestResults.length == 2 );
 
-    auto sdA = sqrt(bestResults[0].error);
-    auto sdB = sqrt(bestResults[1].error);
+    auto sdA = bestResults[0].error;
+    auto sdB = bestResults[1].error;
     auto sumSd = sdA + sdB;
+    //assert( sumSd > 0, "Sum Errors to small" );
     if (sumSd == 0)
     {
-        result = Result!Real( 0.5*(bestResults[0].value+bestResults[1].value), 
-            sqrt(0.25*pow(bestResults[0].error,2)+0.25*pow(bestResults[1].error,2) ) );
+        result = Result!Real( bestResults[0].value+bestResults[1].value, 
+            sqrt( bestResults[0].error + bestResults[1].error ) );
 
         return result;
     }
@@ -207,16 +206,13 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
 
     auto rl = miser( f, bestAreas[0], 
             epsRel, epsAbs,
-            max( 15*area.dimension, npntsl ),
-            bestMSDs[0]
-            );
+            max( 5*area.dimension, npntsl ) );
     auto ru = miser( f, bestAreas[1], 
             epsRel, epsAbs,
-            max( 15*area.dimension, npntsu ),
-            bestMSDs[1] );
+            max( 5*area.dimension, npntsu ) );
 
-    result = Result!Real( 0.5*(rl.value+ru.value), 
-            sqrt(0.25*pow(rl.error,2)+0.25*pow(ru.error,2) ) );
+    result = Result!Real( rl.value+ru.value, 
+            sqrt(pow(rl.error,2)+pow(ru.error,2) ) );
 
     return result; 
 }
@@ -233,8 +229,8 @@ unittest
         return 0.0;
     };
 
-    auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 1e-7 );
+    auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 1e-5 );
     result.writeln;
-    assert( result.value <= PI + 1e-3 );
-    assert( result.value >= PI - 1e-3 );
+    assert( result.value <= PI + 1e-2 );
+    assert( result.value >= PI - 1e-2 );
 }
