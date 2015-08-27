@@ -132,7 +132,8 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
 
     auto minPoints = 15*area.dimension;
 
-    auto dim = max( 0.1*npoints, minPoints );
+    auto dim = max( 0.1*npoints, minPoints ).to!int;
+    auto leftOverPoints = npoints - dim;
     auto points =
         iota( 0, dim, 1 )
         .map!( (i) => bounds
@@ -204,7 +205,6 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
         return result;
     }
 
-    auto leftOverPoints = round( 0.9*npoints ).to!int;
     auto npntsl = round(leftOverPoints*sdA/sumSd).to!int; 
 
     auto rl = miser( f, bestAreas[0], 
