@@ -111,6 +111,7 @@ unittest
     assert( res.error == 4*0.5/3 );
 }
 
+///
 Result!Real integrate(Func, Real)(scope Func f, Real[] a, Real[] b,
     Real epsRel = cast(Real) 1e-6, Real epsAbs = cast(Real) 0)
 {
@@ -120,6 +121,7 @@ Result!Real integrate(Func, Real)(scope Func f, Real[] a, Real[] b,
             result.error ); 
 }
 
+///
 Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     Real epsRel = cast(Real) 1e-6, Real epsAbs = cast(Real) 0, 
     size_t npoints = 1000 )
@@ -225,8 +227,7 @@ unittest
         return 0.0;
     };
 
-    auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 0 );
-    result.writeln;
+    auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 0);
     assert( result.value <= PI + 1e-2 );
     assert( result.value >= PI - 1e-2 );
 }
