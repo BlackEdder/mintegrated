@@ -1,0 +1,12 @@
+{
+	"name": "mintegrated",
+    "targetType":"library",
+	"description": "Differential evolution for multidimensional minimization.",
+	"copyright": "Copyright © 2015, Edwin van Leeuwen",
+	"authors": ["Edwin van Leeuwen"],
+    "license":"Apache v2.0",
+	"dependencies": {
+        "scid": "~>0.3.0",
+        "dstats": "~>1.0.2"
+	}
+}
