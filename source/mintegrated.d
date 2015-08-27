@@ -225,7 +225,7 @@ unittest
         return 0.0;
     };
 
-    auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 1e-5 );
+    auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 0 );
     result.writeln;
     assert( result.value <= PI + 1e-2 );
     assert( result.value >= PI - 1e-2 );
