@@ -116,7 +116,7 @@ Result!Real integrate(Func, Real)(scope Func f, Real[] a, Real[] b,
     Real epsRel = cast(Real) 1e-6, Real epsAbs = cast(Real) 0)
 {
     auto area = Area!Real( a, b );
-    auto result = miser(f, area, epsRel, epsAbs, 10*a.length);
+    auto result = miser(f, area, epsRel, epsAbs, 100000*a.length);
     return Result!Real( result.value, 
             result.error ); 
 }
@@ -129,8 +129,12 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     assert( volume(area) > 0, "Size of area is 0" );
     auto bounds = area.lower.zip(area.upper);
     assert( bounds.all!((t) => t[1] > t[0] ) );
+
+    auto minPoints = 15*area.dimension;
+
+    auto dim = max( 0.1*npoints, minPoints );
     auto points =
-        iota( 0, npoints, 1 )
+        iota( 0, dim, 1 )
         .map!( (i) => bounds
                 .map!( (t) {
                     return uniform!"[]"( t[0], t[1] ).to!Real; 
@@ -141,8 +145,9 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
 
     auto result = values.meanAndVariance(area);
 
-    if (result.error < epsAbs 
-            || result.error/result.value < epsRel)
+    if ( npoints < minPoints 
+            || result.error < epsAbs 
+            || result.error/result.value < epsRel )
         return result;
 
     // Try different subareas
@@ -199,15 +204,13 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
         return result;
     }
 
-    auto npntsl = round(150*area.dimension*sdA/sumSd).to!int; 
-    auto npntsu = 150*area.dimension-npntsl;
+    auto leftOverPoints = round( 0.9*npoints ).to!int;
+    auto npntsl = round(leftOverPoints*sdA/sumSd).to!int; 
 
     auto rl = miser( f, bestAreas[0], 
-            epsRel, epsAbs,
-            max( 5*area.dimension, npntsl ) );
+            epsRel, epsAbs, npntsl );
     auto ru = miser( f, bestAreas[1], 
-            epsRel, epsAbs,
-            max( 5*area.dimension, npntsu ) );
+            epsRel, epsAbs, leftOverPoints-npntsl );
 
     result = Result!Real( rl.value+ru.value, 
             sqrt(pow(rl.error,2)+pow(ru.error,2) ) );
@@ -227,7 +230,8 @@ unittest
         return 0.0;
     };
 
-    auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 0);
+    auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 0 );
+    result.writeln;
     assert( result.value <= PI + 1e-2 );
     assert( result.value >= PI - 1e-2 );
 }
