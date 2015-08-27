@@ -153,17 +153,17 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
         assert( volume(subAreas[0]) > 0, "Cannot divide the area further" );
 
         auto pntvs = zip( points, values );
-        auto results = subAreas.map!( (a) 
-                {
-                    MeanSD msd;
-                    foreach( pntv; zip( points, values ) )
-                        {
-                        if (pntv[0].withinArea(a))
-                        msd.put( pntv[1] );
-                        }
-                    assert( msd.N > 0, "No samples in the subarea" );
-                    return meanAndVariance( msd, a );
-                } );
+        MeanSD[] msds = new MeanSD[2];
+        foreach( pntv; zip( points, values ) )
+        {
+            if (pntv[0].withinArea(subAreas[0]))
+                msds[0].put( pntv[1] );
+            if (pntv[0].withinArea(subAreas[1]))
+                msds[1].put( pntv[1] );
+        }
+        
+        auto results = msds.zip(subAreas).map!((msd) => 
+                meanAndVariance(msd[0], msd[1]) );
         Result!Real[] cacheResults;
         // Optimize this by first only looking at first. Only if that
         // is smaller than bestEstimate would we need to calculate second
