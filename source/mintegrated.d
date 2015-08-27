@@ -43,7 +43,9 @@ unittest
 private Area!Real[] splitArea(Real)( in Area!Real area, size_t dimension )
 {
     assert( dimension < area.lower.length );
-    auto div = (area.upper[dimension]-area.lower[dimension])*0.5
+    auto div = (area.upper[dimension]-area.lower[dimension])
+        //*0.5
+        *uniform(0.4,0.6)
         + area.lower[dimension];
     auto newLower = area.lower.dup;
     newLower[dimension] = div;
@@ -120,10 +122,8 @@ Result!Real integrate(Func, Real)(scope Func f, Real[] a, Real[] b,
 
 Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     Real epsRel = cast(Real) 1e-6, Real epsAbs = cast(Real) 0, 
-    size_t npoints = 1000 )
+    size_t npoints = 1000, MeanSD msd = MeanSD() )
 {
-    import std.stdio : writeln;
-
     assert( volume(area) > 0, "Size of area is 0" );
     auto bounds = area.lower.zip(area.upper);
     assert( bounds.all!((t) => t[1] > t[0] ) );
@@ -137,7 +137,8 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
              );
     auto values = points.map!((pnt) => f( pnt ) ).array;
 
-    auto msd = meanStdev( values );
+    foreach( v; values )
+        msd.put(v);
     auto result = Result!Real( msd.mean, sqrt(msd.mse) );
 
     if (area.volume*result.error < epsAbs 
@@ -148,12 +149,14 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     Area!Real[] bestAreas;
     auto bestEst = Real.max;
     Result!Real[] bestResults;
+    MeanSD[] bestMSDs;
     foreach( j; 0..area.lower.length ) 
     {
         auto subAreas = area.splitArea( j );
         assert( volume(subAreas[0]) > 0, "Cannot divide the area further" );
 
         auto pntvs = zip( points, values );
+        MeanSD[] cacheMSDs;
         auto results = subAreas.map!( (a) 
                 {
                     MeanSD msd;
@@ -162,6 +165,7 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
                         if (pntv[0].withinArea(a))
                         msd.put( pntv[1] );
                         }
+                    cacheMSDs ~= msd;
                     assert( msd.N > 0 );
                     return Result!Real(msd.mean, sqrt(msd.mse));
                 } );
@@ -181,6 +185,7 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
             bestEst = runningError;
             bestResults = cacheResults;
             bestAreas = subAreas;
+            bestMSDs = cacheMSDs;
         }
     }
     assert( bestAreas.length == 2 );
@@ -202,10 +207,13 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
 
     auto rl = miser( f, bestAreas[0], 
             epsRel, epsAbs,
-            max( 15*area.dimension, npntsl ) );
+            max( 15*area.dimension, npntsl ),
+            bestMSDs[0]
+            );
     auto ru = miser( f, bestAreas[1], 
             epsRel, epsAbs,
-            max( 15*area.dimension, npntsu ) );
+            max( 15*area.dimension, npntsu ),
+            bestMSDs[1] );
 
     result = Result!Real( 0.5*(rl.value+ru.value), 
             sqrt(0.25*pow(rl.error,2)+0.25*pow(ru.error,2) ) );
