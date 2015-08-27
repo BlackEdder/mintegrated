@@ -137,10 +137,7 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
              );
     auto values = points.map!((pnt) => f( pnt ) ).array;
 
-    auto msd = meanStdev( values );
-
-    auto result = Result!Real( area.volume*msd.mean, 
-            sqrt(pow(area.volume,2.0)*msd.mse) );
+    auto result = values.meanAndVariance(area);
 
     if (result.error < epsAbs 
             || result.error/result.value < epsRel)
@@ -165,8 +162,7 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
                         msd.put( pntv[1] );
                         }
                     assert( msd.N > 0, "No samples in the subarea" );
-                    return Result!Real(a.volume*msd.mean, 
-                            pow(a.volume,2)*msd.mse );
+                    return meanAndVariance( msd, a );
                 } );
         Result!Real[] cacheResults;
         // Optimize this by first only looking at first. Only if that
