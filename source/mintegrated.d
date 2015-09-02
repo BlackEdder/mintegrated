@@ -146,9 +146,9 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
 
     auto result = values.meanAndVariance(area);
 
-    if ( npoints < minPoints )
+    if ( npoints < minPoints
             //|| result.error < epsAbs 
-            //|| result.error/result.value < epsRel )
+            || result.error/result.value < epsRel )
         return result;
 
     // Try different subareas
