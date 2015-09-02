@@ -146,9 +146,9 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
 
     auto result = values.meanAndVariance(area);
 
-    if ( npoints < minPoints 
-            || result.error < epsAbs 
-            || result.error/result.value < epsRel )
+    if ( npoints < minPoints )
+            //|| result.error < epsAbs 
+            //|| result.error/result.value < epsRel )
         return result;
 
     // Try different subareas
@@ -231,6 +231,7 @@ unittest
     };
 
     auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 0 );
+    result.writeln;
     assert( result.value <= PI + 3*sqrt(result.error) );
     assert( result.value >= PI - 3*sqrt(result.error) );
 }
@@ -244,6 +245,7 @@ unittest
         return xs[0]*xs[1];
     };
     auto result = integrate( func, [0.0,0], [1.0,1] );
+    result.writeln;
     assert( result.value <= 0.25 + 3*sqrt(result.error) );
     assert( result.value >= 0.25 - 3*sqrt(result.error) );
 }
@@ -258,6 +260,7 @@ unittest
         return 1.0/(pow(PI,3)*(1-cos(xs[0])*cos(xs[1])*cos(xs[2])));
     };
     auto result = integrate( func, [0,0,0], [PI,PI,PI] );
+    result.writeln;
     assert( result.value <= 1.393204 + 3*sqrt(result.error) );
     assert( result.value >= 1.393204 - 3*sqrt(result.error) );
 }
