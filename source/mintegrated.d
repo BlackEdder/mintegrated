@@ -121,7 +121,7 @@ Result!Real integrate(Func, Real)(scope Func f, Real[] a, Real[] b,
             result.error ); 
 }
 
-///
+/// The returned error is the expected variance in the result
 Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     Real epsRel = cast(Real) 1e-6, Real epsAbs = cast(Real) 0, 
     size_t npoints = 1000 )
@@ -213,7 +213,7 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
             epsRel, epsAbs, leftOverPoints-npntsl );
 
     result = Result!Real( rl.value+ru.value, 
-            sqrt(pow(rl.error,2)+pow(ru.error,2) ) );
+            rl.error+ru.error );
 
     return result; 
 }
