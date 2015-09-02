@@ -3,7 +3,7 @@ module mintegrated;
 import std.array : array;
 import std.conv : to;
 import std.range : iota, zip;
-import std.algorithm : all, each, map, max, reduce, filter;
+import std.algorithm : all, map, max, reduce, filter;
 import std.random : uniform;
 import std.math : pow, round, sqrt;
 
