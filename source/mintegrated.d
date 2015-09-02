@@ -3,7 +3,7 @@ module mintegrated;
 import std.array : array;
 import std.conv : to;
 import std.range : iota, zip;
-import std.algorithm : all, map, max, reduce, filter;
+import std.algorithm : all, each, map, max, reduce, filter;
 import std.random : uniform;
 import std.math : pow, round, sqrt;
 
@@ -155,7 +155,7 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     Area!Real[] bestAreas;
     auto bestEst = Real.max;
     Result!Real[] bestResults;
-    foreach( j; 0..area.lower.length ) 
+    foreach( j; 0..area.dimension ) 
     {
         auto subAreas = area.splitArea( j );
         assert( volume(subAreas[0]) > 0, "Cannot divide the area further" );
@@ -193,8 +193,8 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     assert( bestAreas.length == 2 );
     assert( bestResults.length == 2 );
 
-    auto sdA = bestResults[0].error;
-    auto sdB = bestResults[1].error;
+    auto sdA = sqrt(bestResults[0].error);
+    auto sdB = sqrt(bestResults[1].error);
     auto sumSd = sdA + sdB;
     //assert( sumSd > 0, "Sum Errors to small" );
     if (sumSd == 0)
@@ -231,8 +231,8 @@ unittest
     };
 
     auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 0 );
-    assert( result.value <= PI + 5e-2 );
-    assert( result.value >= PI - 5e-2 );
+    assert( result.value <= PI + 3*sqrt(result.error) );
+    assert( result.value >= PI - 3*sqrt(result.error) );
 }
 
 ///
@@ -244,8 +244,8 @@ unittest
         return xs[0]*xs[1];
     };
     auto result = integrate( func, [0.0,0], [1.0,1] );
-    assert( result.value <= 0.25 + 5e-2 );
-    assert( result.value >= 0.25 - 5e-2 );
+    assert( result.value <= 0.25 + 3*sqrt(result.error) );
+    assert( result.value >= 0.25 - 3*sqrt(result.error) );
 }
 
 ///
@@ -258,7 +258,6 @@ unittest
         return 1.0/(pow(PI,3)*(1-cos(xs[0])*cos(xs[1])*cos(xs[2])));
     };
     auto result = integrate( func, [0,0,0], [PI,PI,PI] );
-    //result.writeln;
-    assert( result.value <= 1.393204 + 5e-2 );
-    assert( result.value >= 1.393204 - 5e-2 );
+    assert( result.value <= 1.393204 + 3*sqrt(result.error) );
+    assert( result.value >= 1.393204 - 3*sqrt(result.error) );
 }
