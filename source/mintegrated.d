@@ -116,7 +116,7 @@ Result!Real integrate(Func, Real)(scope Func f, Real[] a, Real[] b,
     Real epsRel = cast(Real) 1e-6, Real epsAbs = cast(Real) 0)
 {
     auto area = Area!Real( a, b );
-    auto result = miser(f, area, epsRel, epsAbs, 100000*a.length);
+    auto result = miser(f, area, epsRel, epsAbs, 200000*a.length);
     return Result!Real( result.value, 
             result.error ); 
 }
@@ -231,7 +231,34 @@ unittest
     };
 
     auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 0 );
-    result.writeln;
-    assert( result.value <= PI + 1e-2 );
-    assert( result.value >= PI - 1e-2 );
+    assert( result.value <= PI + 5e-2 );
+    assert( result.value >= PI - 5e-2 );
+}
+
+///
+unittest
+{
+    import std.stdio : writeln;
+    auto func = function(double[] xs ) 
+    {
+        return xs[0]*xs[1];
+    };
+    auto result = integrate( func, [0.0,0], [1.0,1] );
+    assert( result.value <= 0.25 + 5e-2 );
+    assert( result.value >= 0.25 - 5e-2 );
+}
+
+///
+unittest
+{
+    import std.math : PI, cos;
+    import std.stdio : writeln;
+    auto func = function(real[] xs ) 
+    {
+        return 1.0/(pow(PI,3)*(1-cos(xs[0])*cos(xs[1])*cos(xs[2])));
+    };
+    auto result = integrate( func, [0,0,0], [PI,PI,PI] );
+    //result.writeln;
+    assert( result.value <= 1.393204 + 5e-2 );
+    assert( result.value >= 1.393204 - 5e-2 );
 }
