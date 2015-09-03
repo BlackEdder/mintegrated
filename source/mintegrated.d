@@ -83,7 +83,26 @@ unittest
     assert( ![0.0,0.1].withinArea( a ) );
 }
 
-private Result!Real meanAndVariance(Real, Range : MeanSD)( in Range msd, in Area!Real area )
+/// Perform standard Monte Carlo integration
+private MeanSD monteCarlo(Func, Real)( scope Func f, in Area!Real area, 
+        in size_t npoints )
+{
+    auto bounds = area.lower.zip(area.upper);
+
+    MeanSD msd;
+    foreach( i; 0..npoints )
+    {
+        msd.put( f(
+        bounds
+                .map!( (t) {
+                    return uniform!"[]"( t[0], t[1] ).to!Real; 
+                    } 
+                ).array ) );
+    }
+    return msd;
+}
+
+private Result!Real meanAndVariance(Real, MSD : MeanSD)( in MSD msd, in Area!Real area )
 {
     auto v = area.volume;
     return Result!Real( v*msd.mean().to!Real,
@@ -95,7 +114,6 @@ private Result!Real meanAndVariance(Real, Range)( in Range values, in Area!Real 
     auto msd = meanStdev( values );
     return msd.meanAndVariance!Real( area );
 }
-
 
 unittest
 {
@@ -128,26 +146,10 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
 {
     import std.algorithm : cache;
     assert( volume(area) > 0, "Size of area is 0" );
-    auto bounds = area.lower.zip(area.upper);
-    assert( bounds.all!((t) => t[1] > t[0] ) );
-
     auto minPoints = 15*area.dimension;
-
     auto dim = max( 0.1*npoints, minPoints ).to!int;
     auto leftOverPoints = npoints - dim;
-    // TODO use generate instead of iota in the future
-    // generate was only introduced in 2.068 I think
-    auto points =
-        iota( 0, dim, 1 )
-        .map!( (i) => bounds
-                .map!( (t) {
-                    return uniform!"[]"( t[0], t[1] ).to!Real; 
-                    } 
-                ).array 
-             );
-    auto values = points.map!((pnt) => f( pnt ) ).cache.array;
-
-    auto result = values.meanAndVariance(area);
+    auto result = monteCarlo(f, area, dim).meanAndVariance(area);
 
 
     if ( npoints < minPoints
@@ -164,15 +166,10 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
         auto subAreas = area.splitArea( j );
         assert( volume(subAreas[0]) > 0, "Cannot divide the area further" );
 
-        auto pntvs = zip( points, values );
         MeanSD[] msds = new MeanSD[2];
-        foreach( pntv; zip( points, values ) )
-        {
-            if (pntv[0].withinArea(subAreas[0]))
-                msds[0].put( pntv[1] );
-            if (pntv[0].withinArea(subAreas[1]))
-                msds[1].put( pntv[1] );
-        }
+        msds[0] = monteCarlo(f, subAreas[0], dim/2);
+        msds[1] = monteCarlo(f, subAreas[1], dim/2);
+        
         auto results = msds.zip(subAreas).map!((msd) => 
                 meanAndVariance(msd[0], msd[1]) ).cache;
         Result!Real[] cacheResults;
