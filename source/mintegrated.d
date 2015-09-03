@@ -236,6 +236,30 @@ unittest
     assert( result.value >= PI - 3*sqrt(result.error) );
 }
 
+// Test precision
+unittest
+{
+    import std.math : PI, pow;
+    import std.stdio : writeln;
+    auto func = function( double[] xs )
+    {
+        if (pow(xs[0],2)+pow(xs[1],2)<= 1.0)
+            return 1.0;
+        return 0.0;
+    };
+
+    MeanSD msd;
+
+    foreach( i; 0..25 )
+    {
+        auto result = integrate( func, [-1.0,-1], [1.0,1.0], 1e-5, 0 );
+        msd.put(result);
+    }
+    "Mean and variance".writeln;
+    msd.mean.writeln;
+    msd.var.writeln;
+    assert( msd.var < 1e-4 );
+}
 ///
 unittest
 {
