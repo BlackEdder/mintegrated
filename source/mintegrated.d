@@ -144,7 +144,6 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     Real epsRel = cast(Real) 1e-6, Real epsAbs = cast(Real) 0, 
     size_t npoints = 1000 )
 {
-    import std.algorithm : cache;
     assert( volume(area) > 0, "Size of area is 0" );
     auto minPoints = 15*area.dimension;
     auto dim = max( 0.1*npoints, minPoints ).to!int;
@@ -168,7 +167,7 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
         msds[1] = monteCarlo(f, subAreas[1], dim/2);
         
         auto results = msds.zip(subAreas).map!((msd) => 
-                meanAndVariance(msd[0], msd[1]) ).cache;
+                meanAndVariance(msd[0], msd[1]) );
         Result!Real[] cacheResults;
         // Optimize this by first only looking at first. Only if that
         // is smaller than bestEstimate would we need to calculate second
