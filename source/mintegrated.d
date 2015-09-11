@@ -149,13 +149,10 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     auto minPoints = 15*area.dimension;
     auto dim = max( 0.1*npoints, minPoints ).to!int;
     auto leftOverPoints = npoints - dim;
-    auto result = monteCarlo(f, area, dim).meanAndVariance(area);
 
-
-    if ( npoints < minPoints
+    if ( npoints < minPoints )
             //|| result.error < epsAbs 
-            || result.error/result.value < epsRel )
-        return result;
+        return monteCarlo(f, area, dim).meanAndVariance(area);
 
     // Try different subareas
     Area!Real[] bestAreas;
@@ -199,7 +196,7 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     //assert( sumSd > 0, "Sum Errors to small" );
     if (sumSd == 0)
     {
-        result = Result!Real( bestResults[0].value+bestResults[1].value, 
+        auto result = Result!Real( bestResults[0].value+bestResults[1].value, 
             sqrt( bestResults[0].error + bestResults[1].error ) );
 
         return result;
@@ -212,7 +209,7 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     auto ru = miser( f, bestAreas[1], 
             epsRel, epsAbs, leftOverPoints-npntsl );
 
-    result = Result!Real( rl.value+ru.value, 
+    auto result = Result!Real( rl.value+ru.value, 
             rl.error+ru.error );
 
     return result; 
