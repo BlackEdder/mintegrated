@@ -126,6 +126,7 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
     Real epsRel = cast(Real) 1e-6, Real epsAbs = cast(Real) 0, 
     size_t npoints = 1000 )
 {
+    import std.algorithm : cache;
     assert( volume(area) > 0, "Size of area is 0" );
     auto bounds = area.lower.zip(area.upper);
     assert( bounds.all!((t) => t[1] > t[0] ) );
@@ -134,6 +135,8 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
 
     auto dim = max( 0.1*npoints, minPoints ).to!int;
     auto leftOverPoints = npoints - dim;
+    // TODO use generate instead of iota in the future
+    // generate was only introduced in 2.068 I think
     auto points =
         iota( 0, dim, 1 )
         .map!( (i) => bounds
@@ -142,9 +145,10 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
                     } 
                 ).array 
              );
-    auto values = points.map!((pnt) => f( pnt ) ).array;
+    auto values = points.map!((pnt) => f( pnt ) ).cache.array;
 
     auto result = values.meanAndVariance(area);
+
 
     if ( npoints < minPoints
             //|| result.error < epsAbs 
@@ -169,9 +173,8 @@ Result!Real miser(Func, Real)(scope Func f, in Area!Real area,
             if (pntv[0].withinArea(subAreas[1]))
                 msds[1].put( pntv[1] );
         }
-        
         auto results = msds.zip(subAreas).map!((msd) => 
-                meanAndVariance(msd[0], msd[1]) );
+                meanAndVariance(msd[0], msd[1]) ).cache;
         Result!Real[] cacheResults;
         // Optimize this by first only looking at first. Only if that
         // is smaller than bestEstimate would we need to calculate second
